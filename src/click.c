@@ -156,8 +156,12 @@ static int route_click(Con *con, xcb_button_press_event_t *event, const bool mod
     if (con->parent->type == CT_DOCKAREA)
         goto done;
 
-    const bool is_left_or_right_click = (event->detail == XCB_BUTTON_CLICK_LEFT ||
-                                         event->detail == XCB_BUTTON_CLICK_RIGHT);
+    const bool is_any_click = (event->detail == XCB_BUTTON_CLICK_LEFT ||
+                               event->detail == XCB_BUTTON_CLICK_MIDDLE ||
+                               event->detail == XCB_BUTTON_CLICK_RIGHT);
+
+    const bool is_middle_or_right_click = (event->detail == XCB_BUTTON_CLICK_MIDDLE ||
+                                           event->detail == XCB_BUTTON_CLICK_RIGHT);
 
     /* if the user has bound an action to this click, it should override the
      * default behavior. */
@@ -239,27 +243,27 @@ static int route_click(Con *con, xcb_button_press_event_t *event, const bool mod
         /*  5: resize (floating) if this was a (left or right) click on the
          * left/right/bottom border, or a right click on the decoration.
          * also try resizing (tiling) if it was a click on the top */
-        if (mod_pressed && event->detail == XCB_BUTTON_CLICK_RIGHT) {
+        if (mod_pressed && is_middle_or_right_click) {
             DLOG("floating resize due to floatingmodifier\n");
             floating_resize_window(floatingcon, proportional, event);
             return 1;
         }
 
         if (!in_stacked && dest == CLICK_DECORATION &&
-            is_left_or_right_click) {
+            is_any_click) {
             /* try tiling resize, but continue if it doesn’t work */
             DLOG("tiling resize with fallback\n");
             if (tiling_resize(con, event, dest, !was_focused))
                 goto done;
         }
 
-        if (dest == CLICK_DECORATION && event->detail == XCB_BUTTON_CLICK_RIGHT) {
+        if (dest == CLICK_DECORATION && is_middle_or_right_click) {
             DLOG("floating resize due to decoration right click\n");
             floating_resize_window(floatingcon, proportional, event);
             return 1;
         }
 
-        if (dest == CLICK_BORDER && is_left_or_right_click) {
+        if (dest == CLICK_BORDER && is_any_click) {
             DLOG("floating resize due to border click\n");
             floating_resize_window(floatingcon, proportional, event);
             return 1;
@@ -276,13 +280,13 @@ static int route_click(Con *con, xcb_button_press_event_t *event, const bool mod
     }
 
     /* 7: floating modifier pressed, initiate a resize */
-    if (dest == CLICK_INSIDE && mod_pressed && event->detail == XCB_BUTTON_CLICK_RIGHT) {
+    if (dest == CLICK_INSIDE && mod_pressed && is_middle_or_right_click) {
         if (floating_mod_on_tiled_client(con, event))
             return 1;
     }
     /* 8: otherwise, check for border/decoration clicks and resize */
     else if ((dest == CLICK_BORDER || dest == CLICK_DECORATION) &&
-             is_left_or_right_click) {
+             is_any_click) {
         DLOG("Trying to resize (tiling)\n");
         /* Since we updated the tree (con_activate() above), we need to
          * re-render the tree before returning to the event loop (drag_pointer()
